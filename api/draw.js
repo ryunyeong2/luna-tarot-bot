@@ -7,9 +7,9 @@ function buildPrompt({ topic, picks }) {
   const list = picks.map((c, i) => `${i+1}) ${c.name} (${c.orientation === "upright" ? "정위" : "역위"})`).join("\n");
   return `
 너는 엔터테인먼트용 타로 리더야.
-- 해석은 따뜻하고 구체적으로.
-- 과장/단정 금지.
-- 조언은 2~3문장.
+- 따뜻하고 구체적으로, 과장/단정 금지.
+- 카드별 핵심 1줄씩.
+- 전체 흐름 2~3문장, 오늘의 조언 1~2문장.
 - 마지막에 "본 서비스는 엔터테인먼트용입니다." 추가.
 
 [리딩 주제]: ${topic}
@@ -27,14 +27,17 @@ ${list}
 
 export default async function handler(req, res) {
   try {
+    // 1) 카드 로드
     const filePath = path.resolve("./", "cards.json");
     const cards = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
+    // 2) 파라미터
     const body = req.body || {};
     const params = body.action?.params || {};
-    const count = Number(params.count || 1);
-    const topic = (params.topic || "general");
+    const count = Number(params.count || 1);      // 1/3/7 등
+    const topic = (params.topic || "general");    // general/love/money/career 등
 
+    // 3) 랜덤 뽑기 (+ 정/역위)
     const picks = [];
     for (let i = 0; i < count; i++) {
       const c = cards[Math.floor(Math.random() * cards.length)];
@@ -42,8 +45,8 @@ export default async function handler(req, res) {
       picks.push({ name: c.name, orientation });
     }
 
+    // 4) AI 해석 요청
     const prompt = buildPrompt({ topic, picks });
-
     let aiText = "";
     try {
       const resp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -53,7 +56,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gpt-4o-mini",       // 가벼운 모델 (빠름)
           temperature: 0.8,
           messages: [
             { role: "system", content: "You are a helpful Korean tarot reader for entertainment." },
@@ -67,11 +70,13 @@ export default async function handler(req, res) {
       aiText = null;
     }
 
+    // 5) 실패 시 기본 응답
     if (!aiText) {
       const lines = picks.map((c, i) => `${i + 1}) ${c.name} (${c.orientation === "upright" ? "정위" : "역위"})`).join("\n");
-      aiText = `✨ 오늘의 카드\n${lines}\n\n조언: 지금은 차분하게 기다릴 때예요.\n본 서비스는 엔터테인먼트용입니다.`;
+      aiText = `✨ 오늘의 카드\n${lines}\n\n조언: 무리하지 말고 한 걸음씩 진행해요.\n본 서비스는 엔터테인먼트용입니다.`;
     }
 
+    // 6) 카카오 오픈빌더 스킬 응답 포맷
     return res.status(200).json({
       version: "2.0",
       template: {
@@ -86,7 +91,7 @@ export default async function handler(req, res) {
   } catch {
     return res.status(200).json({
       version: "2.0",
-      template: { outputs: [{ simpleText: { text: "서버 오류입니다. 잠시 후 다시 시도해주세요 🙏" }] } }
+      template: { outputs: [{ simpleText: { text: "서버 오류입니다. 잠시 후 다시 시도해주세요 🙏" } }] }
     });
   }
 }
