@@ -4,7 +4,9 @@ import path from "path";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 function buildPrompt({ topic, picks }) {
-  const list = picks.map((c, i) => `${i+1}) ${c.name} (${c.orientation === "upright" ? "정위" : "역위"})`).join("\n");
+  const list = picks
+    .map((c, i) => `${i + 1}) ${c.name} (${c.orientation === "upright" ? "정위" : "역위"})`)
+    .join("\n");
   return `
 너는 엔터테인먼트용 타로 리더야.
 - 따뜻하고 구체적으로, 과장/단정 금지.
@@ -27,7 +29,7 @@ ${list}
 
 export default async function handler(req, res) {
   try {
-    // 1) 카드 로드 (경로 수정됨 ✅)
+    // 1) 카드 로드 (api/cards.json 경로)
     const filePath = path.join(process.cwd(), "api", "cards.json");
     const cards = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
@@ -56,7 +58,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",       // ✅ 안정적 모델로 변경
+          model: "gpt-3.5-turbo",      // 필요시 접근 가능한 모델로 교체
           temperature: 0.8,
           messages: [
             { role: "system", content: "You are a helpful Korean tarot reader for entertainment." },
@@ -72,8 +74,34 @@ export default async function handler(req, res) {
 
     // 5) 실패 시 기본 응답
     if (!aiText) {
-      const lines = picks.map((c, i) => `${i + 1}) ${c.name} (${c.orientation === "upright" ? "정위" : "역위"})`).join("\n");
-      aiText = `✨ 오늘의 카드\n${lines}\n\n조언: 무리하지 말고 한 걸음씩 진행해요.\n본 서비스는 엔터테인먼트용입니다.`;
+      const lines = picks
+        .map((c, i) => `${i + 1}) ${c.name} (${c.orientation === "upright" ? "정위" : "역위"})`)
+        .join("\n");
+      aiText =
+        `✨ 오늘의 카드\n${lines}\n\n` +
+        `조언: 무리하지 말고 한 걸음씩 진행해요.\n` +
+        `본 서비스는 엔터테인먼트용입니다.`;
     }
 
-    // 6) 카카오 오픈빌더 스킬 응답
+    // 6) 카카오 오픈빌더 스킬 응답 (여기!)
+    return res.status(200).json({
+      version: "2.0",
+      template: {
+        outputs: [{ simpleText: { text: aiText } }],
+        quickReplies: [
+          { label: "💞 연애 리딩", action: "message", messageText: "연애 타로" },
+          { label: "💰 금전 리딩", action: "message", messageText: "금전 타로" },
+          { label: "🌌 종합 리딩", action: "message", messageText: "종합 타로" }
+        ]
+      }
+    });
+  } catch {
+    // 전체 try 바깥에서 터지면 여기로 옴
+    return res.status(200).json({
+      version: "2.0",
+      template: {
+        outputs: [{ simpleText: { text: "서버 오류입니다. 잠시 후 다시 시도해주세요 🙏" } }]
+      }
+    });
+  }
+}
