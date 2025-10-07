@@ -27,8 +27,8 @@ ${list}
 
 export default async function handler(req, res) {
   try {
-    // 1) 카드 로드
-    const filePath = path.resolve("./", "cards.json");
+    // 1) 카드 로드 (경로 수정됨 ✅)
+    const filePath = path.join(process.cwd(), "api", "cards.json");
     const cards = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
     // 2) 파라미터
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",       // 가벼운 모델 (빠름)
+          model: "gpt-3.5-turbo",       // ✅ 안정적 모델로 변경
           temperature: 0.8,
           messages: [
             { role: "system", content: "You are a helpful Korean tarot reader for entertainment." },
@@ -76,22 +76,4 @@ export default async function handler(req, res) {
       aiText = `✨ 오늘의 카드\n${lines}\n\n조언: 무리하지 말고 한 걸음씩 진행해요.\n본 서비스는 엔터테인먼트용입니다.`;
     }
 
-    // 6) 카카오 오픈빌더 스킬 응답 포맷
-    return res.status(200).json({
-      version: "2.0",
-      template: {
-        outputs: [{ simpleText: { text: aiText } }],
-        quickReplies: [
-          { label: "💞 연애 리딩", action: "message", messageText: "연애 타로" },
-          { label: "💰 금전 리딩", action: "message", messageText: "금전 타로" },
-          { label: "🌌 종합 리딩", action: "message", messageText: "종합 타로" }
-        ]
-      }
-    });
-  } catch {
-    return res.status(200).json({
-      version: "2.0",
-      template: { outputs: [{ simpleText: { text: "서버 오류입니다. 잠시 후 다시 시도해주세요 🙏" } }] }
-    });
-  }
-}
+    // 6) 카카오 오픈빌더 스킬 응답
